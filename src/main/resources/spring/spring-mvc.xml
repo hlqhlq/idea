@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd
+        http://www.springframework.org/schema/aop
+        http://www.springframework.org/schema/aop/spring-aop.xsd
+        http://www.springframework.org/schema/mvc
+        http://www.springframework.org/schema/mvc/spring-mvc.xsd">
+
+    <!-- SpringMVC的配置文件，包含网站跳转逻辑的控制，配置 -->
+
+    <!-- 静态资源文件，不会被Spring MVC拦截
+         location元素表示webapp目录下的static包下的所有文件
+         mapping元素表示以/static开头的所有请求路径-->
+    <mvc:resources location="/resources/" mapping="/resources/**"/>
+
+    <!-- 启动注解驱动的Spring4 MVC功能，注册请求url和注解POJO类方法的映射 -->
+
+    <bean class="org.springframework.web.servlet.mvc.annotation.AnnotationMethodHandlerAdapter" >
+        <property name="messageConverters">
+            <list>
+                <bean class = "org.springframework.http.converter.StringHttpMessageConverter">
+                    <property name = "supportedMediaTypes">
+                        <list>
+                            <value>text/html;charset=UTF-8</value>
+                        </list>
+                    </property>
+                </bean>
+            </list>
+        </property>
+    </bean>
+
+
+    <!-- 注册组件扫描器 -->
+    <context:component-scan base-package="com.ssm.controller"/>
+
+    <!-- 启动对@AspectJ注解的支持 -->
+    <aop:aspectj-autoproxy/>
+    <aop:aspectj-autoproxy proxy-target-class="true"/>
+
+    <!-- 视图解析器 -->
+    <bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+        <property name="prefix">
+            <value>/WEB-INF/view/</value>
+        </property>
+        <property name="suffix">
+            <value>.jsp</value>
+        </property>
+
+    </bean>
+    <!-- 能支持SpringMVC更高级的一些功能，JSR303检验，快捷的ajax -->
+    <mvc:annotation-driven />
+</beans>

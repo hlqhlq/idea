@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="
+
+     http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+     http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd
+     http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd
+     http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+
+
+    <!-- spring的配置文件，主要配置和业务逻辑有关的 -->
+
+    <!-- 加载数据库配置文件 -->
+    <context:property-placeholder location="classpath:base/*.properties"/>
+
+    <!-- 数据源配置，使用应用内的DBCP数据库连接池 -->
+    <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource"
+          destroy-method="close"
+          p:driverClassName="${jdbc.driver}"
+          p:url="${jdbc.url}"
+          p:username="${jdbc.username}" p:password="${jdbc.password}"
+          p:maxActive="${dbcp.maxActive}"
+          p:maxIdle="${dbcp.maxIdle}">
+    </bean>
+    <!-- MaxActive，连接池的最大数据库连接数
+        maxIdle，最大空闲数，数据库连接的最大空闲时间。超过空闲时间，数据库连接将被标记为不可用，然后被释放
+        destroy-method="close":当数据库连接不使用的时候,就把该连接重新放到数据池中,方便下次使用调用.
+    -->
+
+    <!-- 使用Spring JDBCTemplate简化JDBC的操作 -->
+    <bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+
+    <!-- spring与mybatis整合 -->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <!--dataSource属性指定要用到的连接池-->
+        <property name="dataSource" ref="dataSource"/>
+        <!--configLocation属性指定mybatis的核心配置文件-->
+        <property name="configLocation" value="classpath:mybatis/sqlMapConfig.xml" />
+        <!-- 所有配置的mapper文件 -->
+        <property name="mapperLocations" value="classpath:mybatis/mapper/*.xml" />
+    </bean>
+
+    <!--  Mybatis MapperScannerConfigurer 自动扫描 将Mapper接口生成代理注入到Spring-->
+    <!-- 配置扫描器，将mybatis接口的实现加入到IOC容器中 -->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <!-- annotationClass 属性指定了要寻找的注解名称 -->
+        <property name="annotationClass" value="org.springframework.stereotype.Repository"/>
+        <!-- DAO接口所在包名，Spring会自动查找其下的类，加入到IOC容器中 -->
+        <property name="basePackage" value="com.ssm.dao"></property>
+        <!-- spring+mybatis+property数据源配置 整合 -->
+        <property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"></property>
+    </bean>
+
+    <!-- 定义事务管理 事务:就是对一系列的数据库操作进行统一的提交或回滚操作,保持数据一致性 -->
+    <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"></property>
+    </bean>
+
+    <!-- 扫描有注解的文件  base-package 包路径 -->
+    <context:annotation-config/>
+    <!-- <context:annotation- config/>隐式地向 Spring容器注册AutowiredAnnotationBeanPostProcessor、
+    RequiredAnnotationBeanPostProcessor、CommonAnnotationBeanPostProcessor以及
+    PersistenceAnnotationBeanPostProcessor这4个BeanPostProcessor -->
+
+    <context:component-scan base-package="com.ssm"/>
+    <!--注册事务注解驱动 -->
+    <tx:annotation-driven transaction-manager="transactionManager"/>
+    <tx:annotation-driven mode="aspectj"/>
+    <!-- mode：指定Spring事务管理框架创建通知bean的方式。可用的值有proxy和aspectj。
+               前者是默认值，表示通知对象是个JDK代理；后者表示Spring AOP会使用AspectJ创建代理 -->
+
+
+    <!-- <tx:advice>：事务通知定义，用于指定事务属性，其中“transaction-manager”属性指定事务管理器，
+               并通过< tx:attributes >指定具体需要拦截的方法；(配置事务增强，事务如何切入) -->
+    <tx:advice id="txAdvice" transaction-manager="transactionManager">
+        <tx:attributes>
+            <!-- 表示将拦截以create开头的方法，被拦截的方法将应用配置的事务属性：propagation="REQUIRED"表示传播行为是Required -->
+            <tx:method name="create*" propagation="REQUIRED"/>
+            <tx:method name="save*" propagation="REQUIRED"/>
+            <tx:method name="add*" propagation="REQUIRED"/>
+            <tx:method name="update*" propagation="REQUIRED"/>
+            <tx:method name="remove*" propagation="REQUIRED"/>
+            <tx:method name="del*" propagation="REQUIRED"/>
+            <tx:method name="import*" propagation="REQUIRED"/>
+            <!--
+                              指定当前方法以非事务方式执行操作，如果当前存在事务，就把当前事务挂起，等我以非事务的状态运行完，再继续原来的事务。
+                              查询定义即可
+               read-only="true"  表示只读
+             -->
+            <tx:method name="*" propagation="NOT_SUPPORTED" read-only="true"/>
+        </tx:attributes>
+    </tx:advice>
+
+    <!-- 那些类的哪些方法参与事务 -->
+    <aop:config proxy-target-class="true">
+        <!-- 切入点定义，定义名为"allServiceMethod"的aspectj切入点，切入点表达式为"execution(* com.mvc..service..*.*(..))"
+                           表示拦截com.mvc包及子包下的service包及子包下的任何类的任何方法 -->
+        <aop:pointcut  id="allServiceMethod" expression="execution(* com.ssm..service..*.*(..))"/>
+        <!-- Advisor定义，其中切入点为allServiceMethod，通知为txAdvice (配置事务增强)-->
+        <aop:advisor pointcut-ref="allServiceMethod" advice-ref="txAdvice"/>
+
+        <!--从配置中可以看出,com.mvc包及子包下的service包及子包下的任何类的任何方法应用“txAdvice”通知指定的事务属性。 -->
+    </aop:config>
+
+
+
+</beans>
